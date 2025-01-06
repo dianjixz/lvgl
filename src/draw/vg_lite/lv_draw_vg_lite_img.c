@@ -82,7 +82,17 @@ void lv_draw_vg_lite_img(lv_draw_unit_t * draw_unit, const lv_draw_image_dsc_t *
         return;
     }
 
-    vg_lite_color_t color = lv_vg_lite_image_recolor(&src_buf, dsc);
+    vg_lite_color_t color = 0;
+    if(LV_COLOR_FORMAT_IS_ALPHA_ONLY(decoder_dsc.decoded->header.cf) || dsc->recolor_opa > LV_OPA_TRANSP) {
+        /* alpha image and image recolor */
+        src_buf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
+        color = lv_vg_lite_color(dsc->recolor, LV_OPA_MIX2(dsc->opa, dsc->recolor_opa), true);
+    }
+    else if(dsc->opa < LV_OPA_COVER) {
+        /* normal image opa */
+        src_buf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
+        lv_memset(&color, dsc->opa, sizeof(color));
+    }
 
     /* convert the blend mode to vg-lite blend mode, considering the premultiplied alpha */
     bool has_pre_mul = lv_draw_buf_has_flag(decoder_dsc.decoded, LV_IMAGE_FLAGS_PREMULTIPLIED);
@@ -106,13 +116,13 @@ void lv_draw_vg_lite_img(lv_draw_unit_t * draw_unit, const lv_draw_image_dsc_t *
 
     /* If clipping is not required, blit directly */
     if(lv_area_is_in(&image_tf_area, draw_unit->clip_area, false) && dsc->clip_radius <= 0) {
+        /* The image area is the coordinates relative to the image itself */
+        lv_area_t src_area = *coords;
+        lv_area_move(&src_area, -coords->x1, -coords->y1);
+
         /* rect is used to crop the pixel-aligned padding area */
-        vg_lite_rectangle_t rect = {
-            .x = 0,
-            .y = 0,
-            .width = lv_area_get_width(coords),
-            .height = lv_area_get_height(coords),
-        };
+        vg_lite_rectangle_t rect;
+        lv_vg_lite_rect(&rect, &src_area);
 
         LV_PROFILER_DRAW_BEGIN_TAG("vg_lite_blit_rect");
         LV_VG_LITE_CHECK_ERROR(vg_lite_blit_rect(
@@ -151,7 +161,7 @@ void lv_draw_vg_lite_img(lv_draw_unit_t * draw_unit, const lv_draw_image_dsc_t *
                 0);
         }
 
-        lv_vg_lite_path_set_bounding_box_area(path, &clip_area);
+        lv_vg_lite_path_set_bonding_box_area(path, &clip_area);
         lv_vg_lite_path_end(path);
 
         vg_lite_path_t * vg_lite_path = lv_vg_lite_path_get_path(path);

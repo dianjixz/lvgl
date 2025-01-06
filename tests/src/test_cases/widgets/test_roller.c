@@ -125,25 +125,6 @@ void test_roller_infinite_mode_get_selected_option(void)
     TEST_ASSERT_EQUAL_STRING("Two", actual_str);
 }
 
-void test_roller_set_selected_option_str(void)
-{
-    bool selected;
-    TEST_ASSERT_EQUAL(0, lv_roller_get_selected(roller));
-
-    /* Test an item that exists in the roller */
-    selected = lv_roller_set_selected_str(roller, "Two", LV_ANIM_OFF);
-    TEST_ASSERT_TRUE(selected);
-
-    TEST_ASSERT_EQUAL(1, lv_roller_get_selected(roller));
-
-    /* Try to select an item that does not exist in the roller */
-    selected = lv_roller_set_selected_str(roller, "No", LV_ANIM_OFF);
-    TEST_ASSERT_FALSE(selected);
-
-    /* Make sure that the selection did not change */
-    TEST_ASSERT_EQUAL(1, lv_roller_get_selected(roller));
-}
-
 void test_roller_keypad_events(void)
 {
     int16_t expected_index = 1;
@@ -356,16 +337,14 @@ void test_roller_properties(void)
     lv_property_t prop = { };
 
     prop.id = LV_PROPERTY_ROLLER_OPTIONS;
-    prop.arg1.ptr = "One\nTwo\nThree";
-    prop.arg2.num = LV_ROLLER_MODE_NORMAL;
-    TEST_ASSERT_TRUE(lv_obj_set_property(obj, &prop) == LV_RESULT_OK);
+    prop.ptr = "One\nTwo\nThree";
+    lv_roller_set_options(obj, prop.ptr, LV_ROLLER_MODE_NORMAL);
     TEST_ASSERT_EQUAL_STRING("One\nTwo\nThree", lv_roller_get_options(obj));
     TEST_ASSERT_EQUAL_STRING("One\nTwo\nThree", lv_obj_get_property(obj, LV_PROPERTY_ROLLER_OPTIONS).ptr);
 
     prop.id = LV_PROPERTY_ROLLER_SELECTED;
-    prop.arg1.num = 1;
-    prop.arg2.enable = LV_ANIM_ON;
-    TEST_ASSERT_TRUE(lv_obj_set_property(obj, &prop) == LV_RESULT_OK);
+    prop.num = 1;
+    lv_roller_set_selected(obj, 1, LV_ANIM_OFF);
     TEST_ASSERT_EQUAL_INT(1, lv_roller_get_selected(obj));
     TEST_ASSERT_EQUAL_INT(1, lv_obj_get_property(obj, LV_PROPERTY_ROLLER_SELECTED).num);
 #endif

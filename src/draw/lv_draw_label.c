@@ -33,9 +33,9 @@
  *      TYPEDEFS
  **********************/
 enum {
-    RECOLOR_CMD_STATE_WAIT_FOR_PARAMETER,
-    RECOLOR_CMD_STATE_PARAMETER,
-    RECOLOR_CMD_STATE_TEXT_INPUT,
+    CMD_STATE_WAIT,
+    CMD_STATE_PAR,
+    CMD_STATE_IN,
 };
 typedef unsigned char cmd_state_t;
 
@@ -67,7 +67,6 @@ void lv_draw_label_dsc_init(lv_draw_label_dsc_t * dsc)
     lv_memzero(dsc, sizeof(lv_draw_label_dsc_t));
     dsc->opa = LV_OPA_COVER;
     dsc->color = lv_color_black();
-    dsc->text_length = LV_TEXT_LEN_MAX;
     dsc->font = LV_FONT_DEFAULT;
     dsc->sel_start = LV_DRAW_LABEL_NO_TXT_SEL;
     dsc->sel_end = LV_DRAW_LABEL_NO_TXT_SEL;
@@ -101,7 +100,6 @@ void LV_ATTRIBUTE_FAST_MEM lv_draw_label(lv_layer_t * layer, const lv_draw_label
     lv_draw_task_t * t = lv_draw_add_task(layer, coords);
 
     t->draw_dsc = lv_malloc(sizeof(*dsc));
-    LV_ASSERT_MALLOC(t->draw_dsc);
     lv_memcpy(t->draw_dsc, dsc, sizeof(*dsc));
     t->type = LV_DRAW_TASK_TYPE_LABEL;
 
@@ -215,16 +213,14 @@ void lv_draw_label_iterate_characters(lv_draw_unit_t * draw_unit, const lv_draw_
         pos.y += dsc->hint->y;
     }
 
-    uint32_t remaining_len = dsc->text_length;
-
-    uint32_t line_end = line_start + lv_text_get_next_line(&dsc->text[line_start], remaining_len, font, dsc->letter_space,
-                                                           w, NULL, dsc->flag);
+    uint32_t line_end = line_start + lv_text_get_next_line(&dsc->text[line_start], font, dsc->letter_space, w, NULL,
+                                                           dsc->flag);
 
     /*Go the first visible line*/
     while(pos.y + line_height_font < draw_unit->clip_area->y1) {
         /*Go to next line*/
         line_start = line_end;
-        line_end += lv_text_get_next_line(&dsc->text[line_start], remaining_len, font, dsc->letter_space, w, NULL, dsc->flag);
+        line_end += lv_text_get_next_line(&dsc->text[line_start], font, dsc->letter_space, w, NULL, dsc->flag);
         pos.y += line_height;
 
         /*Save at the threshold coordinate*/
@@ -272,21 +268,20 @@ void lv_draw_label_iterate_characters(lv_draw_unit_t * draw_unit, const lv_draw_
     fill_dsc.opa = dsc->opa;
     int32_t underline_width = font->underline_thickness ? font->underline_thickness : 1;
     int32_t line_start_x;
-    uint32_t next_char_offset;
-    uint32_t recolor_command_start_index = 0;
+    uint32_t i;
+    uint32_t par_start = 0;
     int32_t letter_w;
-    cmd_state_t recolor_cmd_state = RECOLOR_CMD_STATE_WAIT_FOR_PARAMETER;
+    cmd_state_t cmd_state = CMD_STATE_WAIT;
     lv_color_t recolor = lv_color_black(); /* Holds the selected color inside the recolor command */
-    uint8_t is_first_space_after_cmd = 0;
 
     /*Write out all lines*/
-    while(remaining_len && dsc->text[line_start] != '\0') {
+    while(dsc->text[line_start] != '\0') {
         pos.x += x_ofs;
         line_start_x = pos.x;
 
         /*Write all letter of a line*/
-        recolor_cmd_state = RECOLOR_CMD_STATE_WAIT_FOR_PARAMETER;
-        next_char_offset = 0;
+        cmd_state = CMD_STATE_WAIT;
+        i = 0;
 #if LV_USE_BIDI
         char * bidi_txt = lv_malloc(line_end - line_start + 1);
         LV_ASSERT_MALLOC(bidi_txt);
@@ -295,96 +290,63 @@ void lv_draw_label_iterate_characters(lv_draw_unit_t * draw_unit, const lv_draw_
         const char * bidi_txt = dsc->text + line_start;
 #endif
 
-        while(next_char_offset < remaining_len && next_char_offset < line_end - line_start) {
+        while(i < line_end - line_start) {
             uint32_t logical_char_pos = 0;
-
-            /* Check if the text selection is enabled */
-            if(sel_start != LV_DRAW_LABEL_NO_TXT_SEL && sel_end != LV_DRAW_LABEL_NO_TXT_SEL) {
+            if(sel_start != 0xFFFF && sel_end != 0xFFFF) {
 #if LV_USE_BIDI
                 logical_char_pos = lv_text_encoded_get_char_id(dsc->text, line_start);
-                uint32_t t = lv_text_encoded_get_char_id(bidi_txt, next_char_offset);
+                uint32_t t = lv_text_encoded_get_char_id(bidi_txt, i);
                 logical_char_pos += lv_bidi_get_logical_pos(bidi_txt, NULL, line_end - line_start, base_dir, t, NULL);
 #else
-                logical_char_pos = lv_text_encoded_get_char_id(dsc->text, line_start + next_char_offset);
+                logical_char_pos = lv_text_encoded_get_char_id(dsc->text, line_start + i);
 #endif
             }
 
             uint32_t letter;
             uint32_t letter_next;
-            lv_text_encoded_letter_next_2(bidi_txt, &letter, &letter_next, &next_char_offset);
+            lv_text_encoded_letter_next_2(bidi_txt, &letter, &letter_next, &i);
 
-            /* If recolor is enabled */
+            /* Handle the recolor command */
             if((dsc->flag & LV_TEXT_FLAG_RECOLOR) != 0) {
-
                 if(letter == (uint32_t)LV_TXT_COLOR_CMD[0]) {
-                    /* Handle the recolor command marker depending of the current recolor state */
-
-                    if(recolor_cmd_state == RECOLOR_CMD_STATE_WAIT_FOR_PARAMETER) {
-                        recolor_command_start_index = next_char_offset;
-                        recolor_cmd_state = RECOLOR_CMD_STATE_PARAMETER;
+                    if(cmd_state == CMD_STATE_WAIT) { /*Start char*/
+                        par_start = i;
+                        cmd_state = CMD_STATE_PAR;
                         continue;
                     }
-                    /*Other start char in parameter escaped cmd. char*/
-                    else if(recolor_cmd_state == RECOLOR_CMD_STATE_PARAMETER) {
-                        recolor_cmd_state = RECOLOR_CMD_STATE_WAIT_FOR_PARAMETER;
+                    else if(cmd_state == CMD_STATE_PAR) { /*Other start char in parameter escaped cmd. char*/
+                        cmd_state = CMD_STATE_WAIT;
                     }
-                    /* If letter is LV_TXT_COLOR_CMD and we were in the CMD_STATE_IN then the recolor close marked has been found */
-                    else if(recolor_cmd_state == RECOLOR_CMD_STATE_TEXT_INPUT) {
-                        recolor_cmd_state = RECOLOR_CMD_STATE_WAIT_FOR_PARAMETER;
+                    else if(cmd_state == CMD_STATE_IN) { /*Command end*/
+                        cmd_state = CMD_STATE_WAIT;
                         continue;
                     }
                 }
 
-                /* Find the first space (aka ' ') after the recolor command parameter, we need to skip rendering it */
-                if((recolor_cmd_state == RECOLOR_CMD_STATE_PARAMETER) && (letter == ' ') && (is_first_space_after_cmd == 0)) {
-                    is_first_space_after_cmd = 1;
-                }
-                else {
-                    is_first_space_after_cmd = 0;
-                }
+                /*Skip the color parameter and wait the space after it*/
+                if(cmd_state == CMD_STATE_PAR) {
+                    if(letter == ' ') {
+                        /*Get the parameter*/
+                        if(i - par_start == LABEL_RECOLOR_PAR_LENGTH + 1) {
+                            char buf[LABEL_RECOLOR_PAR_LENGTH + 1];
+                            lv_memcpy(buf, &bidi_txt[par_start], LABEL_RECOLOR_PAR_LENGTH);
+                            buf[LABEL_RECOLOR_PAR_LENGTH] = '\0';
+                            int r, g, b;
+                            r = (hex_char_to_num(buf[0]) << 4) + hex_char_to_num(buf[1]);
+                            g = (hex_char_to_num(buf[2]) << 4) + hex_char_to_num(buf[3]);
+                            b = (hex_char_to_num(buf[4]) << 4) + hex_char_to_num(buf[5]);
 
-                /* Skip the color parameter and wait the space after it
-                 * Once we have reach the space ' ', then we will extract the color information
-                 * and store it into the recolor variable */
-                if(recolor_cmd_state == RECOLOR_CMD_STATE_PARAMETER) {
-                    /* Not an space? Continue with the next character */
-                    if(letter != ' ') {
-                        continue;
+                            recolor = lv_color_make(r, g, b);
+                        }
+                        else {
+                            recolor.red = dsc->color.red;
+                            recolor.blue = dsc->color.blue;
+                            recolor.green = dsc->color.green;
+                        }
+                        cmd_state = CMD_STATE_IN; /*After the parameter the text is in the command*/
                     }
-
-                    /*Get the recolor parameter*/
-                    if((next_char_offset - recolor_command_start_index) == LABEL_RECOLOR_PAR_LENGTH + 1) {
-                        /* Temporary buffer to hold the recolor information */
-                        char buf[LABEL_RECOLOR_PAR_LENGTH + 1];
-                        lv_memcpy(buf, &bidi_txt[recolor_command_start_index], LABEL_RECOLOR_PAR_LENGTH);
-                        buf[LABEL_RECOLOR_PAR_LENGTH] = '\0';
-
-                        uint8_t r, g, b;
-                        r = (hex_char_to_num(buf[0]) << 4) + hex_char_to_num(buf[1]);
-                        g = (hex_char_to_num(buf[2]) << 4) + hex_char_to_num(buf[3]);
-                        b = (hex_char_to_num(buf[4]) << 4) + hex_char_to_num(buf[5]);
-
-                        recolor = lv_color_make(r, g, b);
-                    }
-                    else {
-                        recolor.red = dsc->color.red;
-                        recolor.blue = dsc->color.blue;
-                        recolor.green = dsc->color.green;
-                    }
-
-                    /*After the parameter the text is in the command*/
-                    recolor_cmd_state = RECOLOR_CMD_STATE_TEXT_INPUT;
-                }
-
-                /* Don't draw the first space after the recolor command */
-                if(is_first_space_after_cmd) {
                     continue;
                 }
-            }
-
-            /* If we're in the CMD_STATE_IN state then we need to subtract the recolor command length */
-            if(((dsc->flag & LV_TEXT_FLAG_RECOLOR) != 0) && (recolor_cmd_state == RECOLOR_CMD_STATE_TEXT_INPUT)) {
-                logical_char_pos -= (LABEL_RECOLOR_PAR_LENGTH + 1);
             }
 
             letter_w = lv_font_get_glyph_width(font, letter, letter_next);
@@ -395,7 +357,7 @@ void lv_draw_label_iterate_characters(lv_draw_unit_t * draw_unit, const lv_draw_
             bg_coords.x2 = pos.x + letter_w - 1;
             bg_coords.y2 = pos.y + line_height - 1;
 
-            if(next_char_offset >= line_end - line_start) {
+            if(i >= line_end - line_start) {
                 if(dsc->decor & LV_TEXT_DECOR_UNDERLINE) {
                     lv_area_t fill_area;
                     fill_area.x1 = line_start_x;
@@ -418,14 +380,12 @@ void lv_draw_label_iterate_characters(lv_draw_unit_t * draw_unit, const lv_draw_
                 }
             }
 
-            /* Handle text selection */
-            if(sel_start != LV_DRAW_LABEL_NO_TXT_SEL && sel_end != LV_DRAW_LABEL_NO_TXT_SEL
-               && logical_char_pos >= sel_start && logical_char_pos < sel_end) {
+            if(sel_start != 0xFFFF && sel_end != 0xFFFF && logical_char_pos >= sel_start && logical_char_pos < sel_end) {
                 draw_letter_dsc.color = dsc->sel_color;
                 fill_dsc.color = dsc->sel_bg_color;
                 cb(draw_unit, NULL, &fill_dsc, &bg_coords);
             }
-            else if(recolor_cmd_state == RECOLOR_CMD_STATE_TEXT_INPUT) {
+            else if(cmd_state == CMD_STATE_IN) {
                 draw_letter_dsc.color = recolor;
             }
             else {
@@ -444,11 +404,8 @@ void lv_draw_label_iterate_characters(lv_draw_unit_t * draw_unit, const lv_draw_
         bidi_txt = NULL;
 #endif
         /*Go to next line*/
-        remaining_len -= line_end - line_start;
         line_start = line_end;
-        if(remaining_len) {
-            line_end += lv_text_get_next_line(&dsc->text[line_start], remaining_len, font, dsc->letter_space, w, NULL, dsc->flag);
-        }
+        line_end += lv_text_get_next_line(&dsc->text[line_start], font, dsc->letter_space, w, NULL, dsc->flag);
 
         pos.x = coords->x1;
         /*Align to middle*/
@@ -542,7 +499,8 @@ static void draw_letter(lv_draw_unit_t * draw_unit, lv_draw_glyph_dsc_t * dsc,  
             }
         }
 
-        dsc->format = g.format;
+        dsc->glyph_data = (void *) lv_font_get_glyph_bitmap(&g, draw_buf);
+        dsc->format = dsc->glyph_data ? g.format : LV_FONT_GLYPH_FORMAT_NONE;
     }
     else {
         dsc->format = LV_FONT_GLYPH_FORMAT_NONE;

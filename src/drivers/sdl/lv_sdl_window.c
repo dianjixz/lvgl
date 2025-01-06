@@ -46,7 +46,7 @@ typedef struct {
     uint8_t * rotated_buf;
     size_t rotated_buf_size;
 #endif
-    float zoom;
+    uint8_t zoom;
     uint8_t ignore_size_chg;
 } lv_sdl_window_t;
 
@@ -87,7 +87,6 @@ lv_display_t * lv_sdl_window_create(int32_t hor_res, int32_t ver_res)
         SDL_StartTextInput();
         event_handler_timer = lv_timer_create(sdl_event_handler, 5, NULL);
         lv_tick_set_cb(SDL_GetTicks);
-        lv_delay_set_cb(SDL_Delay);
 
         inited = true;
     }
@@ -109,13 +108,12 @@ lv_display_t * lv_sdl_window_create(int32_t hor_res, int32_t ver_res)
 
 #if LV_USE_DRAW_SDL == 0
     if(sdl_render_mode() == LV_DISPLAY_RENDER_MODE_PARTIAL) {
-        uint32_t palette_size = LV_COLOR_INDEXED_PALETTE_SIZE(lv_display_get_color_format(disp)) * 4;
-        uint32_t buffer_size_bytes = 32 * 1024 + palette_size;
-        dsc->buf1 = sdl_draw_buf_realloc_aligned(NULL, buffer_size_bytes);
+        dsc->buf1 = sdl_draw_buf_realloc_aligned(NULL, 32 * 1024);
 #if LV_SDL_BUF_COUNT == 2
-        dsc->buf2 = sdl_draw_buf_realloc_aligned(NULL, buffer_size_bytes);
+        dsc->buf2 = sdl_draw_buf_realloc_aligned(NULL, 32 * 1024);
 #endif
-        lv_display_set_buffers(disp, dsc->buf1, dsc->buf2, buffer_size_bytes, LV_DISPLAY_RENDER_MODE_PARTIAL);
+        lv_display_set_buffers(disp, dsc->buf1, dsc->buf2,
+                               32 * 1024, LV_DISPLAY_RENDER_MODE_PARTIAL);
     }
     /*LV_DISPLAY_RENDER_MODE_DIRECT or FULL */
     else {
@@ -146,7 +144,7 @@ void lv_sdl_window_set_resizeable(lv_display_t * disp, bool value)
     SDL_SetWindowResizable(dsc->window, value);
 }
 
-void lv_sdl_window_set_zoom(lv_display_t * disp, float zoom)
+void lv_sdl_window_set_zoom(lv_display_t * disp, uint8_t zoom)
 {
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
     dsc->zoom = zoom;
@@ -154,7 +152,7 @@ void lv_sdl_window_set_zoom(lv_display_t * disp, float zoom)
     lv_refr_now(disp);
 }
 
-float lv_sdl_window_get_zoom(lv_display_t * disp)
+uint8_t lv_sdl_window_get_zoom(lv_display_t * disp)
 {
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
     return dsc->zoom;
@@ -211,29 +209,8 @@ static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_m
 #if LV_USE_DRAW_SDL == 0
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
     lv_color_format_t cf = lv_display_get_color_format(disp);
-    uint32_t * argb_px_map = NULL;
 
     if(sdl_render_mode() == LV_DISPLAY_RENDER_MODE_PARTIAL) {
-        /*Update values in a special OLED I1 --> ARGB8888 case
-          We render everything in I1, but display it in ARGB8888*/
-        if(cf == LV_COLOR_FORMAT_I1) {
-            /*I1 uses 1 bit wide pixels, ARGB8888 uses 4 byte wide pixels*/
-            cf = LV_COLOR_FORMAT_ARGB8888;
-            uint32_t width = lv_area_get_width(area);
-            uint32_t height = lv_area_get_height(area);
-            uint32_t argb_px_map_size = width * height * 4;
-            argb_px_map = malloc(argb_px_map_size);
-            if(argb_px_map == NULL) {
-                LV_LOG_ERROR("malloc failed");
-                lv_display_flush_ready(disp);
-                return;
-            }
-            /* skip the palette */
-            px_map += LV_COLOR_INDEXED_PALETTE_SIZE(LV_COLOR_FORMAT_I1) * 4;
-            lv_draw_sw_i1_to_argb8888(px_map, argb_px_map, width, height, width / 8, width * 4, 0xFF000000u, 0xFFFFFFFFu);
-            px_map = (uint8_t *)argb_px_map;
-        }
-
         lv_area_t rotated_area = *area;
         lv_display_rotate_area(disp, &rotated_area);
 
@@ -269,7 +246,6 @@ static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_m
 
         window_update(disp);
     }
-    free(argb_px_map);
 #else
     LV_UNUSED(area);
     LV_UNUSED(px_map);
@@ -312,9 +288,7 @@ static void sdl_event_handler(lv_timer_t * t)
                     break;
                 case SDL_WINDOWEVENT_RESIZED:
                     dsc->ignore_size_chg = 1;
-                    int32_t hres = (int32_t)((float)(event.window.data1) / dsc->zoom);
-                    int32_t vres = (int32_t)((float)(event.window.data2) / dsc->zoom);
-                    lv_display_set_resolution(disp, hres, vres);
+                    lv_display_set_resolution(disp, event.window.data1 / dsc->zoom, event.window.data2 / dsc->zoom);
                     dsc->ignore_size_chg = 0;
                     lv_refr_now(disp);
                     break;
@@ -339,18 +313,18 @@ static void sdl_event_handler(lv_timer_t * t)
 static void window_create(lv_display_t * disp)
 {
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
-    dsc->zoom = 1.0;
+    dsc->zoom = 1;
 
     int flag = SDL_WINDOW_RESIZABLE;
 #if LV_SDL_FULLSCREEN
     flag |= SDL_WINDOW_FULLSCREEN;
 #endif
 
-    int32_t hor_res = (int32_t)((float)(disp->hor_res) * dsc->zoom);
-    int32_t ver_res = (int32_t)((float)(disp->ver_res) * dsc->zoom);
+    int32_t hor_res = disp->hor_res;
+    int32_t ver_res = disp->ver_res;
     dsc->window = SDL_CreateWindow("LVGL Simulator",
                                    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                   hor_res, ver_res, flag);       /*last param. SDL_WINDOW_BORDERLESS to hide borders*/
+                                   hor_res * dsc->zoom, ver_res * dsc->zoom, flag);       /*last param. SDL_WINDOW_BORDERLESS to hide borders*/
 
     dsc->renderer = SDL_CreateRenderer(dsc->window, -1,
                                        LV_SDL_ACCELERATED ? SDL_RENDERER_ACCELERATED : SDL_RENDERER_SOFTWARE);
@@ -364,7 +338,7 @@ static void window_create(lv_display_t * disp)
 #endif
 #endif /*LV_USE_DRAW_SDL == 0*/
     /*Some platforms (e.g. Emscripten) seem to require setting the size again */
-    SDL_SetWindowSize(dsc->window, hor_res, ver_res);
+    SDL_SetWindowSize(dsc->window, hor_res * dsc->zoom, ver_res * dsc->zoom);
 #if LV_USE_DRAW_SDL == 0
     texture_resize(disp);
 #endif /*LV_USE_DRAW_SDL == 0*/
@@ -375,11 +349,7 @@ static void window_update(lv_display_t * disp)
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
 #if LV_USE_DRAW_SDL == 0
     int32_t hor_res = disp->hor_res;
-    lv_color_format_t cf = lv_display_get_color_format(disp);
-    if(cf == LV_COLOR_FORMAT_I1) {
-        cf = LV_COLOR_FORMAT_ARGB8888;
-    }
-    uint32_t stride = lv_draw_buf_width_to_stride(hor_res, cf);
+    uint32_t stride = lv_draw_buf_width_to_stride(hor_res, lv_display_get_color_format(disp));
     SDL_UpdateTexture(dsc->texture, NULL, dsc->fb_act, stride);
 
     SDL_RenderClear(dsc->renderer);
@@ -393,14 +363,7 @@ static void window_update(lv_display_t * disp)
 #if LV_USE_DRAW_SDL == 0
 static void texture_resize(lv_display_t * disp)
 {
-    lv_color_format_t cf = lv_display_get_color_format(disp);
-    /*In some cases SDL stride might be different than LVGL render stride, like in I1 format.
-    SDL still uses ARGB8888 as the color format, but LVGL renders in I1, thus causing a mismatch
-    This ensures correct stride for SDL buffers in this case.*/
-    if(cf == LV_COLOR_FORMAT_I1) {
-        cf = LV_COLOR_FORMAT_ARGB8888;
-    }
-    uint32_t stride = lv_draw_buf_width_to_stride(disp->hor_res, cf);
+    uint32_t stride = lv_draw_buf_width_to_stride(disp->hor_res, lv_display_get_color_format(disp));
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
 
     dsc->fb1 = sdl_draw_buf_realloc_aligned(dsc->fb1, stride * disp->ver_res);
@@ -418,7 +381,7 @@ static void texture_resize(lv_display_t * disp)
     }
     if(dsc->texture) SDL_DestroyTexture(dsc->texture);
 
-#if LV_COLOR_DEPTH == 32 || LV_COLOR_DEPTH == 1
+#if LV_COLOR_DEPTH == 32
     SDL_PixelFormatEnum px_format =
         SDL_PIXELFORMAT_RGB888; /*same as SDL_PIXELFORMAT_RGB888, but it's not supported in older versions*/
 #elif LV_COLOR_DEPTH == 24
@@ -428,6 +391,7 @@ static void texture_resize(lv_display_t * disp)
 #else
 #error("Unsupported color format")
 #endif
+    //    px_format = SDL_PIXELFORMAT_BGR24;
 
     dsc->texture = SDL_CreateTexture(dsc->renderer, px_format,
                                      SDL_TEXTUREACCESS_STATIC, disp->hor_res, disp->ver_res);
@@ -468,8 +432,7 @@ static void res_chg_event_cb(lv_event_t * e)
 
     lv_sdl_window_t * dsc = lv_display_get_driver_data(disp);
     if(dsc->ignore_size_chg == false) {
-        SDL_SetWindowSize(dsc->window,
-                          (int)((float)(disp->hor_res)*dsc->zoom), (int)((float)(disp->ver_res)*dsc->zoom));
+        SDL_SetWindowSize(dsc->window, disp->hor_res * dsc->zoom, disp->ver_res * dsc->zoom);
     }
 
 #if LV_USE_DRAW_SDL == 0

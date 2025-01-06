@@ -86,9 +86,7 @@ lv_result_t lv_obj_event_base(const lv_obj_class_t * class_p, lv_event_t * e)
 
     /*Call the actual event callback*/
     e->user_data = NULL;
-    LV_PROFILER_EVENT_BEGIN_TAG(lv_event_code_get_name(e->code));
     base->event_cb(base, e);
-    LV_PROFILER_EVENT_END_TAG(lv_event_code_get_name(e->code));
 
     lv_result_t res = LV_RESULT_OK;
     /*Stop if the object is deleted*/
@@ -373,6 +371,7 @@ static lv_result_t event_send_core(lv_event_t * e)
     if(parent && event_is_bubbled(e)) {
         e->current_target = parent;
         res = event_send_core(e);
+        if(res != LV_RESULT_OK || e->stop_processing || e->stop_bubbling) return res;
     }
 
     return res;

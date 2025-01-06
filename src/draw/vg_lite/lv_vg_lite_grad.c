@@ -158,6 +158,8 @@ bool lv_vg_lite_draw_grad(
                 lv_vg_lite_matrix_multiply(grad_mat_p, grad_matrix);
                 grad_point_to_matrix(grad_mat_p, grad->x1, grad->y1, grad->x2, grad->y2);
 
+                LV_VG_LITE_ASSERT_SRC_BUFFER(&linear_grad->image);
+
                 LV_PROFILER_DRAW_BEGIN_TAG("vg_lite_draw_grad");
                 LV_VG_LITE_CHECK_ERROR(vg_lite_draw_grad(
                                            buffer,
@@ -174,6 +176,8 @@ bool lv_vg_lite_draw_grad(
                 vg_lite_matrix_t * grad_mat_p = vg_lite_get_linear_grad_matrix(linear_grad);
                 LV_ASSERT_NULL(grad_mat_p);
                 *grad_mat_p = *grad_matrix;
+
+                LV_VG_LITE_ASSERT_SRC_BUFFER(&linear_grad->image);
 
                 LV_PROFILER_DRAW_BEGIN_TAG("vg_lite_draw_linear_grad");
                 LV_VG_LITE_CHECK_ERROR(vg_lite_draw_linear_grad(
@@ -194,6 +198,8 @@ bool lv_vg_lite_draw_grad(
                 vg_lite_matrix_t * grad_mat_p = vg_lite_get_radial_grad_matrix(radial);
                 LV_ASSERT_NULL(grad_mat_p);
                 *grad_mat_p = *grad_matrix;
+
+                LV_VG_LITE_ASSERT_SRC_BUFFER(&grad_item->vg.radial.image);
 
                 LV_PROFILER_DRAW_BEGIN_TAG("vg_lite_draw_radial_grad");
                 LV_VG_LITE_CHECK_ERROR(
@@ -386,8 +392,7 @@ static bool linear_grad_create(grad_item_t * item)
     vg_lite_error_t err = vg_lite_init_grad(&item->vg.linear);
     if(err != VG_LITE_SUCCESS) {
         LV_PROFILER_DRAW_END;
-        LV_LOG_ERROR("vg_lite_init_grad error: %d", (int)err);
-        lv_vg_lite_error_dump_info(err);
+        LV_LOG_ERROR("init grad error(%d): %s", (int)err, lv_vg_lite_error_string(err));
         return false;
     }
 
@@ -463,8 +468,7 @@ static bool linear_ext_grad_create(grad_item_t * item)
         item->vg.linear_ext = linear_grad;
     }
     else {
-        LV_LOG_ERROR("vg_lite_update_linear_grad error: %d", (int)err);
-        lv_vg_lite_error_dump_info(err);
+        LV_LOG_ERROR("update grad error(%d): %s", (int)err, lv_vg_lite_error_string(err));
     }
 
     lv_free(color_ramp);
@@ -517,8 +521,7 @@ static bool radial_grad_create(grad_item_t * item)
         item->vg.radial = radial_grad;
     }
     else {
-        LV_LOG_ERROR("vg_lite_update_radial_grad error: %d", (int)err);
-        lv_vg_lite_error_dump_info(err);
+        LV_LOG_ERROR("update radial grad error(%d): %s", (int)err, lv_vg_lite_error_string(err));
     }
 
     lv_free(color_ramp);

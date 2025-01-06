@@ -30,8 +30,6 @@ extern "C" {
 #define LV_TXT_ENC_UTF8 1
 #define LV_TXT_ENC_ASCII 2
 
-#define LV_TEXT_LEN_MAX UINT32_MAX
-
 /**********************
  *      TYPEDEFS
  **********************/

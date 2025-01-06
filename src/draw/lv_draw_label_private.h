@@ -42,12 +42,11 @@ struct _lv_draw_label_hint_t {
 };
 
 struct _lv_draw_glyph_dsc_t {
-    const void *
-    glyph_data;  /**< Depends on `format` field, it could be image source or draw buf of bitmap or vector data. */
+    void * glyph_data;  /**< Depends on `format` field, it could be image source or draw buf of bitmap or vector data. */
     lv_font_glyph_format_t format;
     const lv_area_t * letter_coords;
     const lv_area_t * bg_coords;
-    lv_font_glyph_dsc_t * g;
+    const lv_font_glyph_dsc_t * g;
     lv_color_t color;
     lv_opa_t opa;
     lv_draw_buf_t * _draw_buf; /**< a shared draw buf for get_bitmap, do not use it directly, use glyph_data instead */

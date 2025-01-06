@@ -78,7 +78,7 @@ lv_display_t * lv_display_create(int32_t hor_res, int32_t ver_res)
     disp->color_format = LV_COLOR_FORMAT_NATIVE;
 
 
-#if defined(LV_DRAW_SW_DRAW_UNIT_CNT) && (LV_DRAW_SW_DRAW_UNIT_CNT != 0)
+#if defined(LV_DRAW_SW_DRAW_UNIT_CNT)
     disp->tile_cnt = LV_DRAW_SW_DRAW_UNIT_CNT;
 #else
     disp->tile_cnt = 1;
@@ -522,7 +522,7 @@ lv_color_format_t lv_display_get_color_format(lv_display_t * disp)
 
 void lv_display_set_tile_cnt(lv_display_t * disp, uint32_t tile_cnt)
 {
-    LV_ASSERT_FORMAT_MSG(tile_cnt < 256, "tile_cnt must be smaller than 256 (%" LV_PRId32 " was used)", tile_cnt);
+    LV_ASSERT_FORMAT_MSG(tile_cnt < 256, "tile_cnt must be smaller than 256 (%d was used)", tile_cnt);
 
     if(disp == NULL) disp = lv_display_get_default();
     if(disp == NULL) return;
@@ -1029,37 +1029,6 @@ void lv_display_rotate_area(lv_display_t * disp, lv_area_t * area)
             area->y1 = area->y2 - w + 1;
             break;
     }
-}
-
-uint32_t lv_display_get_draw_buf_size(lv_display_t * disp)
-{
-    if(!disp) disp = lv_display_get_default();
-    if(!disp) return 0;
-
-    if(disp->buf_1) {
-        return disp->buf_1->data_size;
-    }
-    return 0;
-}
-
-uint32_t lv_display_get_invalidated_draw_buf_size(lv_display_t * disp, uint32_t width, uint32_t height)
-{
-    if(!disp) disp = lv_display_get_default();
-    if(!disp) return 0;
-
-    if(disp->render_mode == LV_DISPLAY_RENDER_MODE_FULL) {
-        width = lv_display_get_horizontal_resolution(disp);
-        height = lv_display_get_vertical_resolution(disp);
-    }
-
-    lv_color_format_t cf = lv_display_get_color_format(disp);
-    uint32_t stride = lv_draw_buf_width_to_stride(width, cf);
-    uint32_t buf_size = stride * height;
-
-    LV_ASSERT(disp->buf_1 && disp->buf_1->data_size >= buf_size);
-    if(disp->buf_2) LV_ASSERT(disp->buf_2->data_size >= buf_size);
-
-    return buf_size;
 }
 
 lv_obj_t * lv_screen_active(void)

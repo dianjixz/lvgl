@@ -9,7 +9,7 @@
 #include "lv_demo_ebike.h"
 #if LV_USE_DEMO_EBIKE
 
-#include "../../lvgl_private.h"
+#include "../../src/lvgl_private.h"
 #include "translations/lv_i18n.h"
 #include "lv_demo_ebike_stats.h"
 #include "lv_demo_ebike_private.h"
@@ -121,7 +121,7 @@ static lv_obj_t * left_cont_create(lv_obj_t * parent)
     lv_lottie_set_src_data(stats_img, lottie_ebike_stats, lottie_ebike_stats_size);
     lv_lottie_set_draw_buf(stats_img, lv_demo_ebike_get_lottie_draw_buf());
 #else
-    stats_img = lv_image_create(left_cont);
+    stat_img = lv_image_create(left_cont);
     LV_IMAGE_DECLARE(img_ebike_stats_large);
     lv_image_set_src(stats_img, &img_ebike_stats_large);
 #endif

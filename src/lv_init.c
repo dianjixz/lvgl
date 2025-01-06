@@ -6,6 +6,7 @@
 /*********************
  *      INCLUDES
  *********************/
+#include "others/sysmon/lv_sysmon_private.h"
 #include "misc/lv_timer_private.h"
 #include "misc/lv_profiler_builtin_private.h"
 #include "misc/lv_anim_private.h"
@@ -38,8 +39,6 @@
 #include "themes/simple/lv_theme_simple.h"
 #include "misc/lv_fs.h"
 #include "osal/lv_os_private.h"
-#include "others/sysmon/lv_sysmon_private.h"
-#include "others/xml/lv_xml.h"
 
 #if LV_USE_NEMA_GFX
     #include "draw/nema_gfx/lv_draw_nema_gfx.h"
@@ -200,13 +199,6 @@ void lv_init(void)
 
     lv_group_init();
 
-#if LV_USE_FREETYPE
-    /* Since the drawing unit needs to register the freetype event,
-     * initialize the freetype module first
-     */
-    lv_freetype_init(LV_FREETYPE_CACHE_FT_GLYPH_CNT);
-#endif
-
     lv_draw_init();
 
 #if LV_USE_DRAW_SW
@@ -358,8 +350,9 @@ void lv_init(void)
     lv_ffmpeg_init();
 #endif
 
-#if LV_USE_XML
-    lv_xml_init();
+#if LV_USE_FREETYPE
+    /*Init freetype library*/
+    lv_freetype_init(LV_FREETYPE_CACHE_FT_GLYPH_CNT);
 #endif
 
     lv_initialized = true;
@@ -389,6 +382,10 @@ void lv_deinit(void)
 
 #if LV_USE_SPAN != 0
     lv_span_stack_deinit();
+#endif
+
+#if LV_USE_DRAW_SW
+    lv_draw_sw_deinit();
 #endif
 
 #if LV_USE_FREETYPE

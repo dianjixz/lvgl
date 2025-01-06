@@ -135,10 +135,6 @@ typedef struct _lv_color_filter_dsc_t lv_color_filter_dsc_t;
 
 typedef struct _lv_event_dsc_t lv_event_dsc_t;
 
-typedef struct _lv_cache_t lv_cache_t;
-
-typedef struct _lv_cache_entry_t lv_cache_entry_t;
-
 typedef struct _lv_fs_file_cache_t lv_fs_file_cache_t;
 
 typedef struct _lv_fs_path_ex_t lv_fs_path_ex_t;
@@ -347,11 +343,6 @@ typedef struct _lv_sysmon_perf_info_t lv_sysmon_perf_info_t;
 #endif /*LV_USE_PERF_MONITOR*/
 
 #endif /*LV_USE_SYSMON*/
-
-
-typedef struct _lv_xml_component_ctx_t lv_xml_component_ctx_t;
-
-typedef struct _lv_xml_parser_state_t lv_xml_parser_state_t;
 
 #endif /*__ASSEMBLY__*/
 

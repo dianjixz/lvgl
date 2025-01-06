@@ -33,7 +33,6 @@ typedef struct {
     lv_draw_dsc_base_t base;
 
     const char * text;
-    uint32_t text_length;
     const lv_font_t * font;
     uint32_t sel_start;
     uint32_t sel_end;
@@ -102,7 +101,7 @@ lv_draw_label_dsc_t * lv_draw_task_get_label_dsc(lv_draw_task_t * task);
 void lv_draw_glyph_dsc_init(lv_draw_glyph_dsc_t * dsc);
 
 /**
- * Create a draw task to render a text
+ * Crate a draw task to render a text
  * @param layer         pointer to a layer
  * @param dsc           pointer to draw descriptor
  * @param coords        coordinates of the character
@@ -111,7 +110,7 @@ void /* LV_ATTRIBUTE_FAST_MEM */ lv_draw_label(lv_layer_t * layer, const lv_draw
                                                const lv_area_t * coords);
 
 /**
- * Create a draw task to render a single character
+ * Crate a draw task to render a single character
  * @param layer          pointer to a layer
  * @param dsc            pointer to draw descriptor
  * @param point          position of the label

@@ -6,11 +6,12 @@
 /*********************
  *      INCLUDES
  *********************/
+#include "../../misc/lv_fs_private.h"
 #include "lv_freetype_private.h"
 
 #if LV_USE_FREETYPE
 
-#include "../../misc/lv_fs_private.h"
+#include "lv_freetype_private.h"
 #include "../../core/lv_global.h"
 
 /*********************

@@ -33,6 +33,8 @@ extern "C" {
 
 #define LV_VG_LITE_IS_ERROR(err) (err > 0)
 
+#define VLC_GET_OP_CODE(ptr) (*((uint8_t*)ptr))
+
 #if LV_VG_LITE_USE_ASSERT
 #define LV_VG_LITE_ASSERT(expr) LV_ASSERT(expr)
 #else
@@ -43,8 +45,8 @@ extern "C" {
     do {                                                      \
         vg_lite_error_t error = expr;                         \
         if (LV_VG_LITE_IS_ERROR(error)) {                     \
-            LV_LOG_ERROR("Execute '" #expr "' error: %d", (int)error);  \
-            lv_vg_lite_error_dump_info(error);                \
+            LV_LOG_ERROR("Execute '" #expr "' error(%d): %s", \
+                         (int)error, lv_vg_lite_error_string(error));  \
             LV_VG_LITE_ASSERT(false);                         \
         }                                                     \
     } while (0)
@@ -78,8 +80,6 @@ struct _lv_draw_vg_lite_unit_t;
 /* Print info */
 
 void lv_vg_lite_dump_info(void);
-
-void lv_vg_lite_error_dump_info(vg_lite_error_t error);
 
 const char * lv_vg_lite_error_string(vg_lite_error_t error);
 
@@ -128,7 +128,7 @@ void lv_vg_lite_buffer_from_draw_buf(vg_lite_buffer_t * buffer, const lv_draw_bu
 
 void lv_vg_lite_image_matrix(vg_lite_matrix_t * matrix, int32_t x, int32_t y, const lv_draw_image_dsc_t * dsc);
 
-vg_lite_color_t lv_vg_lite_image_recolor(vg_lite_buffer_t * buffer, const lv_draw_image_dsc_t * dsc);
+void lv_vg_lite_image_dec_init(vg_lite_matrix_t * matrix, int32_t x, int32_t y, const lv_draw_image_dsc_t * dsc);
 
 bool lv_vg_lite_buffer_open_image(vg_lite_buffer_t * buffer, lv_image_decoder_dsc_t * decoder_dsc, const void * src,
                                   bool no_cache, bool premultiply);
@@ -145,10 +145,7 @@ vg_lite_color_t lv_vg_lite_color(lv_color_t color, lv_opa_t opa, bool pre_mul);
 
 void lv_vg_lite_rect(vg_lite_rectangle_t * rect, const lv_area_t * area);
 
-static inline void lv_vg_lite_matrix(vg_lite_matrix_t * dest, const lv_matrix_t * src)
-{
-    *(lv_matrix_t *)dest = *src;
-}
+void lv_vg_lite_matrix(vg_lite_matrix_t * dest, const lv_matrix_t * src);
 
 /* Param checker */
 

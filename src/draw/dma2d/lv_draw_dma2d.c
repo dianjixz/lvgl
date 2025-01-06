@@ -64,7 +64,6 @@ void lv_draw_dma2d_init(void)
     draw_dma2d_unit->base_unit.evaluate_cb = evaluate_cb;
     draw_dma2d_unit->base_unit.dispatch_cb = dispatch_cb;
     draw_dma2d_unit->base_unit.delete_cb = delete_cb;
-    draw_dma2d_unit->base_unit.name = "DMA2D";
 
 #if LV_DRAW_DMA2D_ASYNC
     g_unit = draw_dma2d_unit;
@@ -134,10 +133,9 @@ lv_draw_dma2d_output_cf_t lv_draw_dma2d_cf_to_dma2d_output_cf(lv_color_format_t 
         default:
             LV_ASSERT_MSG(false, "unsupported output color format");
     }
-    return LV_DRAW_DMA2D_OUTPUT_CF_RGB565;
 }
 
-uint32_t lv_draw_dma2d_color_to_dma2d_color(lv_draw_dma2d_output_cf_t cf, lv_color_t color)
+uint32_t lv_draw_dma2d_color_to_dma2d_ocolr(lv_draw_dma2d_output_cf_t cf, lv_color_t color)
 {
     switch(cf) {
         case LV_DRAW_DMA2D_OUTPUT_CF_ARGB8888:
@@ -148,7 +146,6 @@ uint32_t lv_draw_dma2d_color_to_dma2d_color(lv_draw_dma2d_output_cf_t cf, lv_col
         default:
             LV_ASSERT_MSG(false, "unsupported output color format");
     }
-    return 0;
 }
 
 void lv_draw_dma2d_configure_and_start_transfer(const lv_draw_dma2d_configuration_t * conf)
@@ -294,8 +291,7 @@ static int32_t evaluate_cb(lv_draw_unit_t * draw_unit, lv_draw_task_t * task)
             break;
         case LV_DRAW_TASK_TYPE_IMAGE: {
                 lv_draw_image_dsc_t * dsc = task->draw_dsc;
-                if(!(dsc->header.cf < LV_COLOR_FORMAT_PROPRIETARY_START
-                     && dsc->clip_radius == 0
+                if(!(dsc->clip_radius == 0
                      && dsc->bitmap_mask_src == NULL
                      && dsc->sup == NULL
                      && dsc->tile == 0

@@ -99,7 +99,6 @@ void lv_refr_now(lv_display_t * disp)
 
 void lv_obj_redraw(lv_layer_t * layer, lv_obj_t * obj)
 {
-    LV_PROFILER_REFR_BEGIN;
     lv_area_t clip_area_ori = layer->_clip_area;
     lv_area_t clip_coords_for_obj;
 
@@ -109,10 +108,7 @@ void lv_obj_redraw(lv_layer_t * layer, lv_obj_t * obj)
     int32_t ext_draw_size = lv_obj_get_ext_draw_size(obj);
     lv_area_increase(&obj_coords_ext, ext_draw_size, ext_draw_size);
 
-    if(!lv_area_intersect(&clip_coords_for_obj, &clip_area_ori, &obj_coords_ext)) {
-        LV_PROFILER_REFR_END;
-        return;
-    }
+    if(!lv_area_intersect(&clip_coords_for_obj, &clip_area_ori, &obj_coords_ext)) return;
     /*If the object is visible on the current clip area*/
     layer->_clip_area = clip_coords_for_obj;
 
@@ -256,7 +252,6 @@ void lv_obj_redraw(lv_layer_t * layer, lv_obj_t * obj)
     }
 
     layer->_clip_area = clip_area_ori;
-    LV_PROFILER_REFR_END;
 }
 
 void lv_inv_area(lv_display_t * disp, const lv_area_t * area_p)
@@ -405,6 +400,10 @@ void lv_display_refr_timer(lv_timer_t * tmr)
     refr_invalid_areas();
 
     if(disp_refr->inv_p == 0) goto refr_finish;
+
+    /*If refresh happened ...*/
+    lv_display_send_event(disp_refr, LV_EVENT_RENDER_READY, NULL);
+
     /*In double buffered direct mode save the updated areas.
      *They will be used on the next call to synchronize the buffers.*/
     if(lv_display_is_double_buffered(disp_refr) && disp_refr->render_mode == LV_DISPLAY_RENDER_MODE_DIRECT) {
@@ -629,7 +628,6 @@ static void refr_invalid_areas(void)
         }
     }
 
-    lv_display_send_event(disp_refr, LV_EVENT_RENDER_READY, NULL);
     disp_refr->rendering_in_progress = false;
     LV_PROFILER_REFR_END;
 }
@@ -772,9 +770,7 @@ static void refr_configured_layer(lv_layer_t * layer)
     }
     /*If the screen is transparent initialize it when the flushing is ready*/
     if(lv_color_format_has_alpha(disp_refr->color_format)) {
-        lv_area_t clear_area = layer->_clip_area;
-        lv_area_move(&clear_area, -layer->buf_area.x1, -layer->buf_area.y1);
-        lv_draw_buf_clear(layer->draw_buf, &clear_area);
+        lv_draw_buf_clear(layer->draw_buf, &layer->_clip_area);
     }
 
     lv_obj_t * top_act_scr = NULL;
@@ -973,17 +969,11 @@ static bool alpha_test_area_on_obj(lv_obj_t * obj, const lv_area_t * area)
 
 #if LV_DRAW_TRANSFORM_USE_MATRIX
 
-static bool obj_get_matrix(lv_obj_t * obj, lv_matrix_t * matrix)
+static void refr_obj_matrix(lv_layer_t * layer, lv_obj_t * obj)
 {
-    lv_matrix_identity(matrix);
-
-    const lv_matrix_t * obj_matrix = lv_obj_get_transform(obj);
-    if(obj_matrix) {
-        lv_matrix_translate(matrix, obj->coords.x1, obj->coords.y1);
-        lv_matrix_multiply(matrix, obj_matrix);
-        lv_matrix_translate(matrix, -obj->coords.x1, -obj->coords.y1);
-        return true;
-    }
+    lv_matrix_t ori_matrix = layer->matrix;
+    lv_matrix_t obj_matrix;
+    lv_matrix_identity(&obj_matrix);
 
     lv_point_t pivot = {
         .x = lv_obj_get_style_transform_pivot_x(obj, 0),
@@ -1001,58 +991,39 @@ static bool obj_get_matrix(lv_obj_t * obj, lv_matrix_t * matrix)
 
     if(scale_x <= 0 || scale_y <= 0) {
         /* NOT draw if scale is negative or zero */
-        return false;
+        return;
     }
 
     /* generate the obj matrix */
-    lv_matrix_translate(matrix, pivot.x, pivot.y);
+    lv_matrix_translate(&obj_matrix, pivot.x, pivot.y);
     if(rotation != 0) {
-        lv_matrix_rotate(matrix, rotation * 0.1f);
+        lv_matrix_rotate(&obj_matrix, rotation * 0.1f);
     }
 
     if(scale_x != LV_SCALE_NONE || scale_y != LV_SCALE_NONE) {
         lv_matrix_scale(
-            matrix,
+            &obj_matrix,
             (float)scale_x / LV_SCALE_NONE,
             (float)scale_y / LV_SCALE_NONE
         );
     }
 
     if(skew_x != 0 || skew_y != 0) {
-        lv_matrix_skew(matrix, skew_x, skew_y);
+        lv_matrix_skew(&obj_matrix, skew_x, skew_y);
     }
 
-    lv_matrix_translate(matrix, -pivot.x, -pivot.y);
-    return true;
-}
-
-static void refr_obj_matrix(lv_layer_t * layer, lv_obj_t * obj)
-{
-    LV_PROFILER_REFR_BEGIN;
-    lv_matrix_t obj_matrix;
-    if(!obj_get_matrix(obj, &obj_matrix)) {
-        /* NOT draw if obj matrix is not available */
-        LV_PROFILER_REFR_END;
-        return;
-    }
-
-    lv_matrix_t matrix_inv;
-    if(!lv_matrix_inverse(&matrix_inv, &obj_matrix)) {
-        /* NOT draw if matrix is not invertible */
-        LV_PROFILER_REFR_END;
-        return;
-    }
-
-    /* save original matrix */
-    lv_matrix_t ori_matrix = layer->matrix;
+    lv_matrix_translate(&obj_matrix, -pivot.x, -pivot.y);
 
     /* apply the obj matrix */
     lv_matrix_multiply(&layer->matrix, &obj_matrix);
 
     /* calculate clip area without transform */
+    lv_matrix_t matrix_reverse;
+    lv_matrix_inverse(&matrix_reverse, &obj_matrix);
+
     lv_area_t clip_area = layer->_clip_area;
     lv_area_t clip_area_ori = layer->_clip_area;
-    clip_area = lv_matrix_transform_area(&matrix_inv, &clip_area);
+    clip_area = lv_matrix_transform_area(&matrix_reverse, &clip_area);
 
     /* increase the clip area by 1 pixel to avoid rounding errors */
     if(!lv_matrix_is_identity_or_translation(&obj_matrix)) {
@@ -1068,7 +1039,6 @@ static void refr_obj_matrix(lv_layer_t * layer, lv_obj_t * obj)
     layer->matrix = ori_matrix;
     /* restore clip area */
     layer->_clip_area = clip_area_ori;
-    LV_PROFILER_REFR_END;
 }
 
 static bool refr_check_obj_clip_overflow(lv_layer_t * layer, lv_obj_t * obj)
@@ -1103,16 +1073,18 @@ static void refr_obj(lv_layer_t * layer, lv_obj_t * obj)
     lv_opa_t opa = lv_obj_get_style_opa_layered(obj, 0);
     if(opa < LV_OPA_MIN) return;
 
+#if LV_DRAW_TRANSFORM_USE_MATRIX
+    /*If the layer opa is full then use the matrix transform*/
+    if(opa >= LV_OPA_MAX && !refr_check_obj_clip_overflow(layer, obj)) {
+        refr_obj_matrix(layer, obj);
+        return;
+    }
+#endif /* LV_DRAW_TRANSFORM_USE_MATRIX */
+
     lv_layer_type_t layer_type = lv_obj_get_layer_type(obj);
     if(layer_type == LV_LAYER_TYPE_NONE) {
         lv_obj_redraw(layer, obj);
     }
-#if LV_DRAW_TRANSFORM_USE_MATRIX
-    /*If the layer opa is full then use the matrix transform*/
-    else if(opa >= LV_OPA_MAX && !refr_check_obj_clip_overflow(layer, obj)) {
-        refr_obj_matrix(layer, obj);
-    }
-#endif /* LV_DRAW_TRANSFORM_USE_MATRIX */
     else {
         lv_area_t layer_area_full;
         lv_area_t obj_draw_size;
@@ -1140,10 +1112,7 @@ static void refr_obj(lv_layer_t * layer, lv_obj_t * obj)
              * If it really doesn't need alpha use it. Else switch to the ARGB size*/
             layer_area_act.y2 = layer_area_act.y1 + max_rgb_row_height - 1;
             if(layer_area_act.y2 > layer_area_full.y2) layer_area_act.y2 = layer_area_full.y2;
-
-            const void * bitmap_mask_src = lv_obj_get_style_bitmap_mask_src(obj, 0);
-            bool area_need_alpha = bitmap_mask_src || alpha_test_area_on_obj(obj, &layer_area_act);
-
+            bool area_need_alpha = alpha_test_area_on_obj(obj, &layer_area_act);
             if(area_need_alpha) {
                 layer_area_act.y2 = layer_area_act.y1 + max_argb_row_height - 1;
                 if(layer_area_act.y2 > layer_area_full.y2) layer_area_act.y2 = layer_area_full.y2;
@@ -1180,7 +1149,7 @@ static void refr_obj(lv_layer_t * layer, lv_obj_t * obj)
             layer_draw_dsc.skew_y = lv_obj_get_style_transform_skew_y(obj, 0);
             layer_draw_dsc.blend_mode = lv_obj_get_style_blend_mode(obj, 0);
             layer_draw_dsc.antialias = disp_refr->antialiasing;
-            layer_draw_dsc.bitmap_mask_src = bitmap_mask_src;
+            layer_draw_dsc.bitmap_mask_src = lv_obj_get_style_bitmap_mask_src(obj, 0);
             layer_draw_dsc.image_area = obj_draw_size;
             layer_draw_dsc.src = new_layer;
 
@@ -1196,11 +1165,6 @@ static uint32_t get_max_row(lv_display_t * disp, int32_t area_w, int32_t area_h)
     lv_color_format_t cf = disp->color_format;
     uint32_t stride = lv_draw_buf_width_to_stride(area_w, cf);
     uint32_t overhead = LV_COLOR_INDEXED_PALETTE_SIZE(cf) * sizeof(lv_color32_t);
-
-    if(stride == 0) {
-        LV_LOG_WARN("Invalid stride. Value is 0");
-        return 0;
-    }
 
     int32_t max_row = (uint32_t)(disp->buf_act->data_size - overhead) / stride;
 

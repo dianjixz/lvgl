@@ -59,12 +59,12 @@ static void transform_vect_recursive(lv_obj_t * roller, lv_point_t * vect);
 static const lv_property_ops_t properties[] = {
     {
         .id = LV_PROPERTY_ROLLER_OPTIONS,
-        .setter = lv_roller_set_options,
+        .setter = NULL,
         .getter = lv_roller_get_options,
     },
     {
         .id = LV_PROPERTY_ROLLER_SELECTED,
-        .setter = lv_roller_set_selected,
+        .setter = NULL,
         .getter = lv_roller_get_selected,
     },
     {
@@ -218,33 +218,6 @@ void lv_roller_set_selected(lv_obj_t * obj, uint32_t sel_opt, lv_anim_enable_t a
     roller->sel_opt_id_ori = roller->sel_opt_id;
 
     refr_position(obj, anim);
-}
-
-bool lv_roller_set_selected_str(lv_obj_t * obj, const char * sel_opt, lv_anim_enable_t anim)
-{
-    const char * options = lv_roller_get_options(obj);
-    size_t options_len = lv_strlen(options);
-
-    bool option_found = false;
-
-    uint32_t current_option = 0;
-    size_t line_start = 0;
-
-    for(size_t i = 0; i < options_len; i++) {
-        if(options[i] == '\n') {
-            /* See if this is the correct option */
-            if(lv_strncmp(&options[line_start], sel_opt, i - line_start) == 0) {
-                lv_roller_set_selected(obj, current_option, anim);
-                option_found = true;
-                break;
-            }
-
-            current_option++;
-            line_start = i + 1;
-        }
-    }
-
-    return option_found;
 }
 
 void lv_roller_set_visible_row_count(lv_obj_t * obj, uint32_t row_cnt)
@@ -879,19 +852,11 @@ static void transform_vect_recursive(lv_obj_t * roller, lv_point_t * vect)
         angle += lv_obj_get_style_transform_rotation(parent, 0);
         int32_t zoom_act_x = lv_obj_get_style_transform_scale_x_safe(parent, 0);
         int32_t zoom_act_y = lv_obj_get_style_transform_scale_y_safe(parent, 0);
-        scale_x = (scale_x * zoom_act_x) >> 8;
+        scale_x = (scale_y * zoom_act_x) >> 8;
         scale_y = (scale_y * zoom_act_y) >> 8;
         parent = lv_obj_get_parent(parent);
     }
     lv_point_t pivot = { 0, 0 };
-
-    if(scale_x == 0) {
-        scale_x = 1;
-    }
-
-    if(scale_y == 0) {
-        scale_y = 1;
-    }
 
     scale_x = 256 * 256 / scale_x;
     scale_y = 256 * 256 / scale_y;

@@ -1,4 +1,4 @@
-# Kconfig file for LVGL v9.3.0-dev
+# Kconfig file for LVGL v9.2.0
 
 menu "LVGL configuration"
 
@@ -163,14 +163,14 @@ menu "LVGL configuration"
 			default "stdint.h"
 			depends on LV_OS_CUSTOM
 
-		config LV_USE_FREERTOS_TASK_NOTIFY
-			bool "Use RTOS task with a direct notification for synchronization"
-			default y
-			depends on LV_OS_FREERTOS
-		help
-			Unblocking an RTOS task with a direct notification is 45% faster and uses less RAM
-			than unblocking a task using an intermediary object such as a binary semaphore.
-			RTOS task notifications can only be used when there is only one task that can be the recipient of the event.
+        config LV_USE_FREERTOS_TASK_NOTIFY
+            bool "Use RTOS task with a direct notification for synchronization"
+            default y
+            depends on LV_OS_FREERTOS
+        help
+            Unblocking an RTOS task with a direct notification is 45% faster and uses less RAM
+            than unblocking a task using an intermediary object such as a binary semaphore.
+            RTOS task notifications can only be used when there is only one task that can be the recipient of the event.
 	endmenu
 
 	menu "Rendering Configuration"
@@ -201,15 +201,6 @@ menu "LVGL configuration"
 				If a widget has `style_opa < 255` (not `bg_opa`, `text_opa` etc) or not NORMAL blend mode
 				it is buffered into a "simple" layer before rendering. The widget can be buffered in smaller chunks.
 				"Transformed layers" (if `transform_angle/zoom` are set) use larger buffers and can't be drawn in chunks.
-
-		config LV_DRAW_LAYER_MAX_MEMORY
-			int "The maximum amount of memory that can be used for layers"
-			default 0
-			help
-				Limit the max allocated memory for simple and transformed layers.
-				It should be at least `LV_DRAW_LAYER_SIMPLE_BUF_SIZE` sized but if transformed layers are also used
-				it should be enough to store the largest widget too (width x height x 4 area).
-				Set it to 0 to have no limit.
 
 		config LV_DRAW_THREAD_STACK_SIZE
 			int "Stack size of draw thread in bytes"
@@ -384,7 +375,7 @@ menu "LVGL configuration"
 		config LV_USE_PXP
 		bool "Use NXP's PXP on iMX RTxxx platforms"
 		default n
-
+		
 		config LV_USE_DRAW_PXP
 		bool "Use PXP for drawing"
 			depends on LV_USE_PXP
@@ -750,11 +741,6 @@ menu "LVGL configuration"
 				bool "Enable multi-thread render"
 				default n
 				depends on LV_USE_VG_LITE_THORVG
-
-			config LV_USE_GESTURE_RECOGNITION
-				bool "Enable the multi-touch gesture recognition feature"
-				depends on LV_USE_FLOAT
-				default n
 		endmenu
 	endmenu
 
@@ -991,9 +977,9 @@ menu "LVGL configuration"
 			help
 				Minimum number of characters in a long word to put on a line after a break
 
-		config LV_TXT_COLOR_CMD
-			string "The control character to use for signalling text recoloring"
-			default "#"
+        config LV_TXT_COLOR_CMD
+            string "The control character to use for signalling text recoloring"
+            default "#"
 
 		config LV_USE_BIDI
 			bool "Support bidirectional texts"
@@ -1254,9 +1240,6 @@ menu "LVGL configuration"
 			int "Set an upper cased letter on which the drive will accessible (e.g. 65 for 'A')"
 			default 0
 			depends on LV_USE_FS_FATFS
-		config LV_FS_FATFS_PATH
-			string "Set the working directory"
-			depends on LV_USE_FS_FATFS
 		config LV_FS_FATFS_CACHE_SIZE
 			int ">0 to cache this number of bytes in lv_fs_read()"
 			default 0
@@ -1275,9 +1258,6 @@ menu "LVGL configuration"
 			int "Set an upper cased letter on which the drive will accessible (e.g. 65 for 'A')"
 			default 0
 			depends on LV_USE_FS_LITTLEFS
-		config LV_FS_LITTLEFS_PATH
-			string "Set the working directory"
-			depends on LV_USE_FS_LITTLEFS
 
 		config LV_USE_FS_ARDUINO_ESP_LITTLEFS
 			bool "File system on top of Arduino ESP littlefs API"
@@ -1285,18 +1265,12 @@ menu "LVGL configuration"
 			int "Set an upper cased letter on which the drive will accessible (e.g. 65 for 'A')"
 			default 0
 			depends on LV_USE_FS_ARDUINO_ESP_LITTLEFS
-		config LV_FS_ARDUINO_ESP_LITTLEFS_PATH
-			string "Set the working directory"
-			depends on LV_USE_FS_ARDUINO_ESP_LITTLEFS
 
 		config LV_USE_FS_ARDUINO_SD
 			bool "File system on top of Arduino SD API"
 		config LV_FS_ARDUINO_SD_LETTER
 			int "Set an upper cased letter on which the drive will accessible (e.g. 65 for 'A')"
 			default 0
-			depends on LV_USE_FS_ARDUINO_SD
-		config LV_FS_ARDUINO_SD_PATH
-			string "Set the working directory"
 			depends on LV_USE_FS_ARDUINO_SD
 
 		config LV_USE_LODEPNG
@@ -1398,13 +1372,6 @@ menu "LVGL configuration"
 			bool "Dump format"
 			depends on LV_USE_FFMPEG
 			default n
-		config LV_FFMPEG_PLAYER_USE_LV_FS
-			bool "Use lvgl file path in FFmpeg Player widget"
-			depends on LV_USE_FFMPEG
-			default n
-			help
-				You won't be able to open URLs after enabling this feature.
-				Note that FFmpeg image decoder will always use lvgl file system.
 	endmenu
 
 	menu "Others"
@@ -1536,10 +1503,6 @@ menu "LVGL configuration"
 			bool "Enable cache profiler"
 			default y
 
-		config LV_PROFILER_EVENT
-			bool "Enable event profiler"
-			default y
-
 		endif # LV_USE_PROFILER
 
 		config LV_USE_MONKEY
@@ -1609,14 +1572,13 @@ menu "LVGL configuration"
 			int "Font manager name max length"
 			depends on LV_USE_FONT_MANAGER
 			default 32
-		config LV_USE_XML
-			bool "Enable loading XML UIs runtime"
+
 		config LVGL_VERSION_MAJOR
 			int
 			default 9 # LVGL_VERSION_MAJOR
 		config LVGL_VERSION_MINOR
 			int
-			default 3 # LVGL_VERSION_MINOR
+			default 2 # LVGL_VERSION_MINOR
 		config LVGL_VERSION_PATCH
 			int
 			default 0 # LVGL_VERSION_PATCH
@@ -1867,13 +1829,6 @@ menu "LVGL configuration"
 			depends on LV_USE_NUTTX
 			default n
 
-		config LV_NUTTX_TOUCHSCREEN_CURSOR_SIZE
-			int "Touchscreen cursor size in pixels"
-			depends on LV_USE_NUTTX_TOUCHSCREEN
-			default 0
-			help
-				Set to 0 to disable cursor, or set to a value greater than 0 to set the cursor size in pixels.
-
 		config LV_USE_LINUX_DRM
 			bool "Use Linux DRM device"
 			default n
@@ -1975,11 +1930,7 @@ menu "LVGL configuration"
 		config LV_USE_DEMO_BENCHMARK
 			bool "Benchmark your system"
 			default n
-			select LV_FONT_MONTSERRAT_14
-			select LV_FONT_MONTSERRAT_20
-			select LV_FONT_MONTSERRAT_24
-			select LV_FONT_MONTSERRAT_26
-			select LV_USE_DEMO_WIDGETS
+			depends on LV_FONT_MONTSERRAT_14 && LV_FONT_MONTSERRAT_24 && LV_USE_DEMO_WIDGETS
 		config LV_USE_DEMO_RENDER
 			bool "Render test for each primitives. Requires at least 480x272 display"
 			default n

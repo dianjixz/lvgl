@@ -199,14 +199,9 @@ lv_font_t * lv_font_manager_create_font(lv_font_manager_t * manager, const char 
         ret_font = lv_font_manager_create_font_single(manager, &ft_info);
     }
 
-    /* Append fallback font to make LV_SYMBOL displayable */
-    lv_font_t * cur_font = ret_font;
-    while(cur_font) {
-        if(cur_font->fallback == NULL) {
-            cur_font->fallback = LV_FONT_DEFAULT;
-            break;
-        }
-        cur_font = (lv_font_t *)cur_font->fallback;
+    /* make LV_SYMBOL displayable */
+    if(ret_font) {
+        ret_font->fallback = LV_FONT_DEFAULT;
     }
 
     return ret_font;
@@ -270,7 +265,7 @@ static bool lv_font_manager_delete_font_single(lv_font_manager_t * manager, lv_f
     if(!rec_node) {
         LV_LOG_WARN("NO record found for font: %p(%d),"
                     " it was not created by font manager",
-                    (void *)font, (int)font->line_height);
+                    font, (int)font->line_height);
         return false;
     }
 
@@ -429,7 +424,7 @@ static bool lv_font_manager_check_resource(lv_font_manager_t * manager)
         lv_font_rec_node_t * node;
         LV_LL_READ(rec_ll, node) {
             LV_LOG_WARN("font: %p(%d) -> ref: %s(%d)",
-                        (void *)node,
+                        node,
                         (int)node->font.line_height,
                         node->refer_node_p->ft_info.name,
                         node->refer_node_p->ft_info.size);
@@ -465,7 +460,7 @@ static lv_font_rec_node_t * lv_font_manager_search_rec_node(lv_font_manager_t * 
     lv_font_rec_node_t * rec_node;
     LV_LL_READ(&manager->rec_ll, rec_node) {
         if(font == &rec_node->font) {
-            LV_LOG_INFO("font: %p(%d) matched", (void *)font, (int)font->line_height);
+            LV_LOG_INFO("font: %p(%d) matched", font, (int)font->line_height);
             return rec_node;
         }
     }
@@ -545,7 +540,7 @@ static const lv_font_refer_node_t * lv_font_manager_get_freetype_font(lv_font_ma
         return refer_node;
     }
 
-    /* not found refer_node, start to create font */
+    /* not fount refer_node, start to create font */
 
     lv_font_t * font = lv_font_manager_create_font_warpper(manager, ft_info);
 

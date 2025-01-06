@@ -91,24 +91,19 @@ static int32_t nema_gfx_delete(lv_draw_unit_t * draw_unit);
 void lv_draw_nema_gfx_init(void)
 {
     lv_draw_nema_gfx_unit_t * draw_nema_gfx_unit = lv_draw_create_unit(sizeof(lv_draw_nema_gfx_unit_t));
-    /*Initialize NemaGFX*/
+    /*Initiallize NemaGFX*/
     nema_init();
-
-    draw_nema_gfx_unit->base_unit.dispatch_cb = nema_gfx_dispatch;
-    draw_nema_gfx_unit->base_unit.evaluate_cb = nema_gfx_evaluate;
-    draw_nema_gfx_unit->base_unit.delete_cb = nema_gfx_delete;
-    draw_nema_gfx_unit->base_unit.name = "NEMA_GFX";
-
 #if LV_USE_NEMA_VG
-    /*Initialize NemaVG */
+    /*Initiallize NemaVG */
     nema_vg_init(LV_NEMA_GFX_MAX_RESX, LV_NEMA_GFX_MAX_RESY);
     /* Allocate VG Buffers*/
     draw_nema_gfx_unit->paint = nema_vg_paint_create();
     draw_nema_gfx_unit->gradient = nema_vg_grad_create();
     draw_nema_gfx_unit->path = nema_vg_path_create();
-    /*Initialize Freetype Support*/
-    lv_draw_nema_gfx_label_init(&(draw_nema_gfx_unit->base_unit));
 #endif
+    draw_nema_gfx_unit->base_unit.dispatch_cb = nema_gfx_dispatch;
+    draw_nema_gfx_unit->base_unit.evaluate_cb = nema_gfx_evaluate;
+    draw_nema_gfx_unit->base_unit.delete_cb = nema_gfx_delete;
     /*Create GPU Command List*/
     draw_nema_gfx_unit->cl = nema_cl_create();
     /*Bind Command List*/
@@ -144,7 +139,10 @@ static int32_t nema_gfx_evaluate(lv_draw_unit_t * draw_unit, lv_draw_task_t * ta
             }
 #if LV_USE_NEMA_VG
         case LV_DRAW_TASK_TYPE_TRIANGLE:
-        case LV_DRAW_TASK_TYPE_ARC:
+        case LV_DRAW_TASK_TYPE_ARC: {
+                lv_draw_arc_dsc_t * draw_arc_dsc = (lv_draw_arc_dsc_t *) task->draw_dsc;
+                if(draw_arc_dsc->rounded == 0) break;
+            }
         case LV_DRAW_TASK_TYPE_FILL: {
                 if(task->preference_score > 80) {
                     task->preference_score = 80;
@@ -178,16 +176,7 @@ static int32_t nema_gfx_evaluate(lv_draw_unit_t * draw_unit, lv_draw_task_t * ta
 #endif
         case LV_DRAW_TASK_TYPE_IMAGE: {
                 lv_draw_image_dsc_t * draw_image_dsc = (lv_draw_image_dsc_t *) task->draw_dsc;
-                /*Guard for previous NemaGFX Version*/
-#ifndef NEMA_BLOP_RECOLOR
-                if(draw_image_dsc->recolor_opa > LV_OPA_MIN)
-                    break;
-#endif
-                const lv_image_dsc_t * img_dsc = draw_image_dsc->src;
-                if(!lv_nemagfx_is_cf_supported(img_dsc->header.cf))
-                    break;
-
-                if(draw_image_dsc->blend_mode != LV_BLEND_MODE_SUBTRACTIVE) {
+                if(draw_image_dsc->blend_mode == LV_BLEND_MODE_NORMAL || draw_image_dsc->blend_mode == LV_BLEND_MODE_ADDITIVE) {
                     if(task->preference_score > 80) {
                         task->preference_score = 80;
                         task->preferred_draw_unit_id = DRAW_UNIT_ID_NEMA_GFX;
@@ -256,11 +245,11 @@ static int32_t nema_gfx_dispatch(lv_draw_unit_t * draw_unit, lv_layer_t * layer)
 
     /* Return 0 is no selection, some tasks can be supported by other units. */
     if(t == NULL || t->preferred_draw_unit_id != DRAW_UNIT_ID_NEMA_GFX)
-        return LV_DRAW_UNIT_IDLE;
+        return 0;
 
     void * buf = lv_draw_layer_alloc_buf(layer);
     if(buf == NULL)
-        return LV_DRAW_UNIT_IDLE;
+        return -1;
 
     t->state = LV_DRAW_TASK_STATE_IN_PROGRESS;
     draw_nema_gfx_unit->base_unit.target_layer = layer;

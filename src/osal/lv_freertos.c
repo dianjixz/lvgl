@@ -61,7 +61,7 @@ static void prvTestAndDecrement(lv_thread_sync_t * pxCond,
  *  STATIC VARIABLES
  **********************/
 
-#ifdef ESP_PLATFORM
+#if (ESP_PLATFORM)
     static portMUX_TYPE critSectionMux = portMUX_INITIALIZER_UNLOCKED;
 #endif
 
@@ -69,7 +69,7 @@ static void prvTestAndDecrement(lv_thread_sync_t * pxCond,
  *      MACROS
  **********************/
 
-#ifdef ESP_PLATFORM
+#if (ESP_PLATFORM)
     #define _enter_critical()   taskENTER_CRITICAL(&critSectionMux);
     #define _exit_critical()    taskEXIT_CRITICAL(&critSectionMux);
     #define _enter_critical_isr() taskENTER_CRITICAL_FROM_ISR();
@@ -176,8 +176,6 @@ lv_result_t lv_mutex_unlock(lv_mutex_t * pxMutex)
 
 lv_result_t lv_mutex_delete(lv_mutex_t * pxMutex)
 {
-    if(pxMutex->xIsInitialized == pdFALSE)
-        return LV_RESULT_INVALID;
     vSemaphoreDelete(pxMutex->xMutex);
     pxMutex->xIsInitialized = pdFALSE;
 
